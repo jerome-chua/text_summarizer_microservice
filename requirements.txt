@@ -1,0 +1,5 @@
+pyzmq
+llama-index-core
+llama-index-llms-groq
+python-dotenv
+torch
