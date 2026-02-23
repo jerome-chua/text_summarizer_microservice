@@ -55,7 +55,7 @@ client = Groq()
 
 
 async def call_agent_summarizer(text, max_sentences=DEFAULT_SENTENCES):
-    print("--- call_agent_summarizer() called ---")
+    
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
@@ -74,13 +74,13 @@ async def call_agent_summarizer(text, max_sentences=DEFAULT_SENTENCES):
 
 async def handle_request(message: str) -> str:
     """Parse incoming JSON, validate it, summarize the text, and return a JSON response string."""
-    print("--- handle_request() called ---")
+    
 
     # --- Parse JSON ---
     try:
         request = json.loads(message)
     except json.JSONDecodeError as e:
-        print(f"❌ JSON parse error: {e}")
+        print(f"ERROR: JSON parse error: {e}")
         return json.dumps({"error": f"Invalid JSON: {e}"})
 
     if not isinstance(request, dict):
@@ -99,7 +99,7 @@ async def handle_request(message: str) -> str:
     used_fallback = False
     try:
         summary = await call_agent_summarizer(text, max_sentences)
-        print("✅ LLM summarization succeeded")
+        print("LLM summarization succeeded")
     except Exception as agent_err:
         err_str = str(agent_err)
         if "429" in err_str or "rate_limit" in err_str.lower():
@@ -122,15 +122,16 @@ async def main():
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.bind("tcp://*:5555")
-    print("Text Summarizer Microservice running on: Port 5555")
+    print("Text Summarizer Microservice running on: Port 5555 \n")
 
     while True:
         message = socket.recv_string()
-        print(f"Request received: '{message}'")
+        print(f"Request received: '{message}' \n")
 
         response = await handle_request(message)
         socket.send_string(response)
-        print("Response sent back to client")
+        print("Response sent back to client \n")
+        print("\n")
 
 
 if __name__ == "__main__":
