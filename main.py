@@ -72,31 +72,29 @@ async def call_agent_summarizer(text, max_sentences=DEFAULT_SENTENCES):
     return response.choices[0].message.content
 
 
-async def handle_request(message: str) -> str:
-    """Parse incoming JSON, validate it, summarize the text, and return a JSON response string."""
-    
-
-    # --- Parse JSON ---
+def parse_and_validate_request(message: str):
+    """Parse JSON input and validate request fields."""
     try:
         request = json.loads(message)
     except json.JSONDecodeError as e:
         print(f"ERROR: JSON parse error: {e}")
-        return json.dumps({"error": f"Invalid JSON: {e}"})
+        return None, json.dumps({"error": f"Invalid JSON: {e}"})
 
     if not isinstance(request, dict):
-        return json.dumps({"error": "Request must be a JSON object."}) 
+        return None, json.dumps({"error": "Request must be a JSON object."})
 
-    # --- Validate fields ---
     validation_error = validate_request(request)
     if validation_error:
         print(f"❌ Validation error: {validation_error}")
-        return json.dumps({"error": validation_error})
+        return None, json.dumps({"error": validation_error})
 
-    text = request["text"].strip()
-    max_sentences = request.get("max_sentences", DEFAULT_SENTENCES)
+    return request, None
 
-    # --- Summarize ---
+
+async def get_summary_with_fallback(text: str, max_sentences: int):
+    """Try LLM summarization, then fall back to basic summarizer if needed."""
     used_fallback = False
+
     try:
         summary = await call_agent_summarizer(text, max_sentences)
         print("LLM summarization succeeded")
@@ -109,8 +107,23 @@ async def handle_request(message: str) -> str:
             )
         else:
             print(f"⚠️ Agent failed, falling back to basic summarizer: {agent_err}")
+
         summary = summarize(text, max_sentences)
         used_fallback = True
+
+    return summary, used_fallback
+
+
+async def handle_request(message: str) -> str:
+    """Parse, validate, summarize, and return a JSON response."""
+    request, error_response = parse_and_validate_request(message)
+    if error_response:
+        return error_response
+
+    text = request["text"].strip()
+    max_sentences = request.get("max_sentences", DEFAULT_SENTENCES)
+
+    summary, used_fallback = await get_summary_with_fallback(text, max_sentences)
 
     return json.dumps({
         "summary": summary,
